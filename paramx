@@ -1,0 +1,210 @@
+#!/usr/bin/perl
+
+#########################################################################
+#Automatically submiting Script
+#
+#FudanUniversity
+#
+#Department of MacroMolecule Science,220 Handan Road, Shanghai, China.   
+#
+#Copyright reserved by Song W.D & Gao J                                  
+#
+#Revision by Yi-Xin Liu since 9.1.2010
+#version 1.2, 11/08/2010                                                  
+#
+##########################################################################
+	
+	use Getopt::Std;
+	BEGIN{
+		push(@INC,$ENV{"HOME"}."/opt/lyx/perl");
+    }
+    use Util;
+	use Node;
+
+	my %opt;
+	getopts("vhtb:",\%opt);
+	if(defined $opt{'v'}){
+		print "This is paramx, version 1.0, 10/21/2010.\n";
+		print "paramx is a perl script for automatically generating parameter files and submitting programs.\n\n";
+		print "Initial version by J. Gao & W.D. Song.\n";
+		print "Revision: Yi-Xin Liu.\n";
+		print "Contact: liuyxpp at gmail.com.\n";
+		exit(0);
+	}
+	if(defined $opt{'h'}){
+		print "Available options are: -b -h -t -v.\n";
+		print "b: the batch variable (e, eA, f, k, l, p). The default value is \"f\".\n";
+		print "h: this help.\n";
+		print "t: submit the program as a foreground job. If set, the program is submitted as a foreground job. If not set this flag, the program is submitted as a backgound job which is the preferred way.\n";
+		print "v: version.\n";
+		exit(0);
+	}
+	my $is_background=1;
+	$is_background=0 if defined $opt{'t'};
+#   %script: for this script use only. hash key for naming excutable file, hash value for naming directory.
+#   %prog: for program use only. hash value for naming batchVar.
+#   (e,eps,epsS): constant eps case
+#   (eA,epsA,epsA): variable eps case. epsB=epsA.
+	my %script=("p","pA","e","eps","eA","epsA","f","fA","l","l","k","chiN");
+	my %prog=("p","alphaA","e","epsS","eA","epsA","f","fA","l","ll","k","chiN");
+	my $batchScript_key='f';
+	foreach (keys %script){
+		$batchScript_key=$_
+			if($opt{'b'} eq $_ );
+	}
+
+#   Update your own nodes here
+#   my $nodeList=qw/c0101 c0102 c0103 c0104 c0105 c0106 c0107 c0108 c0109 c0110 c0111 c0112 c0113 c0114 c0115 c0116/;    
+	my @nodeList=qw/c0109 c0112 c0116/;
+#	my @nodeList=qw/c0109 c0110 c0111 c0116/;
+#	my @nodeList=qw/c0114 c0115 c0106 c0107 c0108 c0109/;
+	my $user="lyx";
+	my $exe_filename="scft";
+    my $field_filename="Field_in.mat";
+	my $param_filename="param.ini";
+	my $waitTime=600; # seconds
+	my $pwd=$ENV{"PWD"};
+	my %pidNode; #key: PID; value: Node
+
+	if(!(-e $param_filename)){
+		print "Error: configuration file \"$param_filename\" is missing!\n";
+		print "The script is now aborted.\n";
+		exit(0);
+	}
+	if(!(-e $exe_filename)){
+		print "Error: the program \"$exe_filename\" is missing!\n";
+		print "The script is now aborted.\n";
+		exit(0);
+	}
+	open FILE,$param_filename;
+	@plistHash;
+	@plistFormal = <FILE>;
+    trim(@plistFormal);	
+    foreach(@plistFormal){
+		unshift @plistHash,split / *= */,$_
+			if(!/#/);
+	}
+	%list = @plistHash;
+	%list_bak = %list;
+	my $batchProg_key=$list{"batchVarName"};
+
+	system "mkdir data" unless -e "data";
+	my $dir_name1="data/";
+	foreach (sort keys %script){
+		if($_ ne $batchProg_key && $_ ne $batchScript_key){
+			$dir_name1.=$script{$_};
+			$dir_name1.=$list{$prog{$_}};
+		}
+	}
+	system "mkdir $dir_name1" unless -e $dir_name1;
+	
+	my $bp=$prog{$batchProg_key}; # batch variable name used by program
+	my $bs=$prog{$batchScript_key}; # batch variable name used by script
+	my $bs_step=$bs."_step";
+	my $bs_max=$bs."_max";
+	for($list{$bs}=$list_bak{$bs};$list{$bs}<=$list{$bs_max};$list{$bs}+=$list{$bs_step}){
+		my $dir_name2 = $dir_name1."/$script{$batchScript_key}".$list{$bs};
+		my $exec_name = $batchScript_key.$list{$bs};
+		foreach (sort keys %prog){
+			if($_ ne $batchProg_key && $_ ne $batchScript_key){
+				$exec_name.=$_.$list{$prog{$_}};
+			}
+		}
+		system "mkdir $dir_name2" unless -e $dir_name2;
+		system "cp $exe_filename $dir_name2/$exec_name";
+# system "cp $field_filename $dir_name2/$field_filename";
+		chdir $dir_name2;
+		&printP($bp);
+		
+		my $freeNode=&findCore(@nodeList);
+		while(!$freeNode){
+			print "No free cores. Waiting for \033[1;36;49m[$waitTime]\033[m seconds to check again.\n";
+			print "\033[1;37;49m[paramx]\033[m is still running...\n";
+			sleep $waitTime;
+			$freeNode=&findCore(@nodeList);
+		}
+		my $rsh="rsh $freeNode ";
+		my $cmd=$rsh;
+		if($is_background){
+			$cmd.="\"cd $pwd/$dir_name2 && ./$exec_name > log &\"";
+		}
+		else{
+			$cmd.="\"cd $pwd/$dir_name2 && ./$exec_name > log\"";
+		}
+		system "$cmd &";
+		sleep 1;
+		my $ps_cmd="ps -ef |grep $user |grep ./$exec_name |grep -v grep |grep -v bash |grep -v rsh |tr -s \" \" \" \" |cut -f2 -d \" \"";
+		$pid=`$rsh $ps_cmd`;
+		while(!($pid>0)){
+			sleep 1;
+			$pid=`$rsh $ps_cmd`;
+		}
+		chomp $pid;
+		$pidNode{$pid}=$freeNode;
+		print "$dir_name2/$exec_name was submitted to node \033[1;35;49m[$freeNode]\033[m with PID \033[1;32;49m$pid\033[m\n";
+
+		chdir $ENV{"PWD"};
+	}
+
+#$ls_out=`ls -l $dir_name1/$script{$batchScript_key}*/`;
+#print "\n".$ls_out;
+
+open FILE, ">pid.node";
+foreach (keys %pidNode){
+	print FILE $_." ";
+	print FILE $pidNode{$_}." ";
+}
+close FILE;
+my $fpid="pid.node.".$list_bak{$bs}.".".$list{$bs_max};
+system "mv pid.node $dir_name1/$fpid";
+
+sub printP {
+	my $batchVar = $_[0];
+	open FILE,">param.in";
+	print FILE $list{"N"}."\n";
+	print FILE $list{"a"}."\n";
+	print FILE $list{"fA"}."\n";
+	print FILE $list{"chiN"}."\n";
+	print FILE $list{"chiAS"}."\n";
+	print FILE $list{"chiBS"}."\n";
+	print FILE $list{"phiC_avg"}."\n";
+	print FILE $list{"cs"}."\n";
+	print FILE $list{"alphaA"}."\n";
+	print FILE $list{"alphaB"}."\n";
+	print FILE $list{"upsA"}."\n";
+	print FILE $list{"upsB"}."\n";
+	print FILE $list{"upsP"}."\n";
+	print FILE $list{"upsN"}."\n";
+	print FILE $list{"epsA"}."\n";
+#   modify following line if epsB is not equal to epsA!
+	print FILE $list{"epsA"}."\n";
+	print FILE $list{"epsS"}."\n";
+	print FILE $list{"isAnnealed"}."\n";
+	print FILE $list{"maxIterativeStep"}."\n";
+	print FILE $list{"Lx"}."\n";
+	print FILE $list{"Ly"}."\n";
+	print FILE $list{"Lz"}."\n";
+	print FILE $list{"ll"}."\n";
+	print FILE $list{"SM"}."\n";
+	print FILE $list{"lamA"}."\n";
+	print FILE $list{"lamB"}."\n";
+	print FILE $list{"lamS"}."\n";
+	print FILE $list{"lamP"}."\n";
+	print FILE $list{"lamN"}."\n";
+	print FILE $list{"lamPsi"}."\n";
+	print FILE $list{"lamYita"}."\n";
+	print FILE $list{"cellType"}."\n";
+	print FILE $list{"phaseType"}."\n";
+	print FILE $batchVar."\n";
+	print FILE $list{"batchVarStep"}."\n";
+	print FILE $list{"batchVarMax"}."\n";
+	print FILE $list{"print_interval"}."\n";
+	print FILE $list{"save_interval"}."\n";
+	print FILE $list{"threshH"}."\n";
+	print FILE $list{"threshDensity"}."\n";
+	print FILE $list{"threshResidual"}."\n";
+	print FILE $list{"preRun_threshError"}."\n";
+	print FILE $list{"preRun_step"}."\n";
+	close FILE;
+}
+

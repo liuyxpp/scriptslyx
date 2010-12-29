@@ -1,0 +1,26 @@
+#!/usr/bin/perl
+
+#########################################################################
+# Kill processes based on PID at specific Node which are recorded at file
+# pid.node when these proecesses were submitted by perl script paramx.  
+#
+# FudanUniversity
+#
+# Department of MacroMolecule Science,220 Handan Road, Shanghai, China.   
+#
+# Author: Yi-Xin Liu
+# Since 9.1.2010
+# 9/20/2010                                                  
+#
+##########################################################################
+
+open FILE,"pid.node";
+@pidNodeList=split /\s+/, <FILE>;
+%pidNode=@pidNodeList;
+	
+foreach (keys %pidNode){
+	system "rsh $pidNode{$_} kill $_"; 
+	print "Process \033[1;32;49m$_\033[m has been killed at node \033[1;35;49m[$pidNode{$_}]\033[m\n";
+	sleep 1;
+}
+
