@@ -14,9 +14,15 @@
 #
 ##########################################################################
 
-open FILE,"pid.node";
-@pidNodeList=split /\s+/, <FILE>;
-%pidNode=@pidNodeList;
+if(-e "pid.nod"){
+    open FILE,"pid.node";
+    @pidNodeList=split /\s+/, <FILE>;
+    %pidNode=@pidNodeList;
+}
+else{
+    @pidNodeList=split /\s+/, <STDIN>;
+    %pidNode=@pidNodeList;
+}
 	
 foreach (keys %pidNode){
 	system "rsh $pidNode{$_} kill $_"; 
