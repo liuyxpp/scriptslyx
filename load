@@ -41,8 +41,8 @@ my $is_from_file=0;
 # default node list
 my @nodeList=(9,10,11,12,16);
 # if files nodes exist
-if(-e "nodes"){
-    open FILE, "nodes";
+if(-e "/export/home/lyx/opt/lyx/scripts/nodes"){
+    open FILE, "/export/home/lyx/opt/lyx/scripts/nodes";
     @nodeList=<FILE>;
     chomp @nodeList;
     close FILE;
@@ -70,6 +70,7 @@ if (defined $opt{'s'}){
     }
 }
 $is_from_file=0 if(defined $opt{'a'} || defined $opt{'b'} || defined $opt{'e'} || defined $opt{'s'});
+
 if(!$is_from_file){
 # sorting
 @nodeList=sort {$a<=>$b} @nodeList;

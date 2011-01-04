@@ -10,7 +10,7 @@
 #Copyright reserved by Song W.D & Gao J                                  
 #
 #Revision by Yi-Xin Liu since 9.1.2010
-#version 2.0, 12/29/2010                                                  
+#version 2.0, 12/30/2010                                                  
 # 2010.12.29
 #   1. Read data and exe path from param.ini
 #   2. Add an option "n".
@@ -61,9 +61,9 @@
 	}
 
     my @nodeList;
-    if(-e "nodes"){
-        open FILE, "nodes";
-        my @nodeList=<FILE>;
+    if(-e "/export/home/lyx/opt/lyx/scripts/nodes"){
+        open FILE, "/export/home/lyx/opt/lyx/scripts/nodes";
+        @nodeList=<FILE>;
         chomp @nodeList;
         close FILE;
     }

@@ -1,0 +1,49 @@
+#!/usr/bin/perl
+
+$user=$ENV{"USER"};
+$exec_name=$ARGV[0];
+$exec_path=$ARGV[1];
+$exec_log=$ARGV[2];
+$is_rsh;
+$numArgs=$#ARGV+1;
+if($numArgs==4){
+    $node=$ARGV[3];
+    $is_rsh=1;
+}
+else{
+    $is_rsh=0;
+}
+
+if($is_rsh){
+    $rsh="rsh $node";
+    $cmd="\"$exec_path/$exec_name > $exec_log &\"";
+    $result=system "$rsh $cmd &";
+}
+else{
+    $cmd="$exec_path/$exec_name > $exec_log &";
+    $result=system $cmd;
+}
+
+$ps_cmd="ps -ef |grep $user |grep ./$exec_name |grep -v grep |grep -v sh |grep -v perl |grep -v bash |grep -v rsh |tr -s \" \" \" \" |cut -f2 -d \" \"";
+sleep 1;
+if($is_rsh){
+    $pid = `$rsh $ps_cmd`;
+}
+else{
+    $pid = `$ps_cmd`;
+}
+chomp $pid;
+$pid_old=$pid;
+print "PID of $exec_name is $pid.\n";
+while($pid>0){
+    sleep 5;
+    if($is_rsh){
+        $pid = `$rsh $ps_cmd`;
+    }
+    else{
+        $pid = `$ps_cmd`;
+    }
+    chomp $pid;
+}
+print "$exec_name of PID $pid_old is done.\n";
+
