@@ -10,23 +10,34 @@
 #
 # Author: Yi-Xin Liu
 # Since 9.1.2010
-# 9/20/2010                                                  
+# 1/13/2011                                                  
 #
 ##########################################################################
 
-if(-e "pid.nod"){
+$numArgs=$#ARGV+1;
+if($numArgs==0){
+if(-e "pid.node"){
     open FILE,"pid.node";
     @pidNodeList=split /\s+/, <FILE>;
     %pidNode=@pidNodeList;
 }
 else{
-    @pidNodeList=split /\s+/, <STDIN>;
+    print "No NodeList file found! Please input the filename of the NodeList file in the command line or store the NodeList file at the current directory with filename pid.node.";
+    exit(0);
+}
+}
+else{
+foreach(@ARGV){
+if(-e $_){
+    open FILE,$_;
+    @pidNodeList=split /\s+/, <FILE>;
     %pidNode=@pidNodeList;
+    close FILE;
+    foreach (keys %pidNode){
+	    system "rsh $pidNode{$_} kill $_"; 
+	    print "Process \033[1;32;49m$_\033[m has been killed at node \033[1;35;49m[$pidNode{$_}]\033[m\n";
+	    sleep 1;
+    }
 }
-	
-foreach (keys %pidNode){
-	system "rsh $pidNode{$_} kill $_"; 
-	print "Process \033[1;32;49m$_\033[m has been killed at node \033[1;35;49m[$pidNode{$_}]\033[m\n";
-	sleep 1;
 }
-
+}

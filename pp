@@ -11,12 +11,12 @@ use Getopt::Std;
 my %opt;
 getopts('vi:n:',\%opt);
 if(defined $opt{'v'}){
-	print "This is pp, version 12/24/2010.\n\n";
-	print "pp is a perl script for finding process bin path using process ID. \nUsage: pp -i PID.\npp -i PID -n #node\n";
+	print "This is pp, version 12/24/2010. ";
+	print "Author: Yi-Xin Liu. ";
+	print "Contact: liuyxpp\@gmail.com.\n\n";
+	print "pp is a perl script for finding process bin path using process ID. Usage:\n\tpp -i PID.\nOr\n\tpp -i PID -n #node\n";
     print "#node is the number order of a node, e.g. #node=9 for node c0109.\n";
     print "the default node is the current node.\n";
-	print "Author: Yi-Xin Liu.\n";
-	print "Contact: liuyxpp at gmail.com.\n";
 	exit(0);
 }
 my $pid=0; # default PID
