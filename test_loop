@@ -1,0 +1,11 @@
+#!/usr/bin/perl
+
+my $small=1e-10;
+my $min=24;
+my $max=25;
+my $step=0.1;
+my $runs=($max-$min+$small)/$step;
+for($i=0;$i<$runs;$i+=1){
+    $var=$min+$i*$step;
+    print "$i\t$var\n";
+}

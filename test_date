@@ -1,0 +1,12 @@
+#!/usr/bin/perl
+
+#use lib qw("/export/home/lyx/opt/perl/lib/perl5","/export/home/lyx/opt/perl/lib/perl5/site_perl");
+use Date::Parse;
+use Date::Manip;
+use POSIX qw/strftime/;
+
+$date_str="20110127-101230";
+print $date_str."\n";
+$date=ParseDateString($date_str);
+print $date."\n";
+print UnixDate($date,'%c');

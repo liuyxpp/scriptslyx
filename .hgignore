@@ -1,0 +1,8 @@
+syntax: glob
+*.swp
+*.mat
+*.png
+*.bak
+*.out
+*.pyc
+

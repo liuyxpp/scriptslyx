@@ -10,11 +10,16 @@
 #Copyright reserved by Song W.D & Gao J                                  
 #
 #Revision by Yi-Xin Liu since 9.1.2010
-#version 2.0, 12/30/2010                                                  
+#version 2.3, 1/28/2011                                                  
 # 2010.12.29
 #   1. Read data and exe path from param.ini
 #   2. Add an option "n".
-#
+# 2010.1.27
+#   1. Record simulation batch to $HOME/simulation/active_batch
+# 2011.1.28
+#   1. Reads nodes file before findCore each time.
+# 2011.3.23
+#   1. Add prog key "N"
 ##########################################################################
 	
 	use Getopt::Std;
@@ -23,6 +28,7 @@
     }
     use Util;
 	use Node;
+    use POSIX qw/strftime/;
 
 	my %opt;
 	getopts("vhntb:",\%opt);
@@ -52,8 +58,8 @@
 #   %prog: for program use only. hash value for naming batchVar.
 #   (e,eps,epsS): constant eps case
 #   (eA,epsA,epsA): variable eps case. epsB=epsA.
-	my %script=("p","pA","e","eps","eA","epsA","f","fA","l","l","k","chiN");
-	my %prog=("p","alphaA","e","epsS","eA","epsA","f","fA","l","ll","k","chiN");
+	my %script=("p","pA","e","eps","eA","epsA","f","fA","l","l","k","chiN","N","N");
+	my %prog=("p","alphaA","e","epsS","eA","epsA","f","fA","l","ll","k","chiN","N","N");
 	my $batchScript_key='f';
 	foreach (keys %script){
 		$batchScript_key=$_
@@ -70,9 +76,7 @@
     else{
 #       Update your own nodes here
 #       @nodeList=qw/c0101 c0102 c0103 c0104 c0105 c0106 c0107 c0108 c0109 c0110 c0111 c0112 c0113 c0114 c0115 c0116/;    
-	    @nodeList=qw/c0109 c0112 c0116/;
-#	    @nodeList=qw/c0109 c0110 c0111 c0116/;
-#	    @nodeList=qw/c0114 c0115 c0106 c0107 c0108 c0109/;
+	    @nodeList=qw/c0109 c0114/;
     }
 	my $user=$ENV{"USER"};
 	my $pwd=$ENV{"PWD"};
@@ -84,6 +88,10 @@
 		print "The script is now aborted.\n";
 		exit(0);
 	}
+    my $activeBatch="/export/home/lyx/simulation/active_batch/";
+    my $timeStamp=strftime('%Y%m%d-%H%M%S',localtime);
+    $activeBatch.="batchdir-".$timeStamp;
+
 	open FILE,$param_filename;
 	my @plistHash;
 	@plistFormal = <FILE>;
@@ -128,13 +136,17 @@
 		}
 	}
     $dir_name1.=$data_path_suffix;
-	system "mkdir $dir_name1" unless -e $dir_name1;
+	system "mkdir $dir_name1" unless -e $dir_name1;#batch dir
+    system "cp param.ini $dir_name1/param.ini-$timeStamp";
 	
 	my $bp=$prog{$batchProg_key}; # batch variable name used by program
 	my $bs=$prog{$batchScript_key}; # batch variable name used by script
 	my $bs_step=$bs."_step";
 	my $bs_max=$bs."_max";
-	for($list{$bs}=$list_bak{$bs};$list{$bs}<=$list{$bs_max};$list{$bs}+=$list{$bs_step}){
+    my $small=1e-10;
+    my $runs=($list{$bs_max}-$list{$bs}+$small)/$list{$bs_step};
+	for($i=0;$i<$runs;$i+=1){
+        $list{$bs}=$list_bak{$bs}+$i*$list{$bs_step};
 		my $dir_name2 = $dir_name1."/$script{$batchScript_key}".$list{$bs};
 		my $exec_name = $batchScript_key.$list{$bs};
 		foreach (sort keys %prog){
@@ -143,6 +155,9 @@
 			}
 		}
 		system "mkdir $dir_name2" unless -e $dir_name2;
+        open FILE,">>".$activeBatch;
+            print FILE $dir_name2."\n";
+        close FILE;
         if($is_submit){
 		    system "cp $exe_filepath/$exe_filename $dir_name2/$exec_name";
         }
@@ -156,8 +171,26 @@
 		my $freeNode=&findCore(@nodeList);
 		while(!$freeNode){
 			print "No free cores. Waiting for \033[1;36;49m[$waitTime]\033[m seconds to check again.\n";
-			print "\033[1;37;49m[paramx]\033[m is still running...\n";
-			sleep $waitTime;
+			print "\033[1;37;49m[paramx]\033[m is still running.";
+            $|=1;
+            my $t=0;
+            while($t<$waitTime){
+                print ".";
+                sleep 2;
+                $t+=2;
+            }
+            print "\n";
+            if(-e "/export/home/lyx/opt/lyx/scripts/nodes"){
+                open FILE, "/export/home/lyx/opt/lyx/scripts/nodes";
+                @nodeList=<FILE>;
+                chomp @nodeList;
+                close FILE;
+            }
+            else{
+#       Update your own nodes here
+#       @nodeList=qw/c0101 c0102 c0103 c0104 c0105 c0106 c0107 c0108 c0109 c0110 c0111 c0112 c0113 c0114 c0115 c0116/;    
+                @nodeList=qw/c0109 c0114/;
+            }
 			$freeNode=&findCore(@nodeList);
 		}
 		my $rsh="rsh $freeNode ";
